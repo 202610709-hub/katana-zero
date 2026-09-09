@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steel Requiem - Combat Tech Demo Extended</title>
+    <title>Katana Zero - Web Tech Demo</title>
     <style>
         * {
             box-sizing: border-box;
@@ -76,12 +76,12 @@
             bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(10, 10, 20, 0.85);
+            background: rgba(10, 10, 20, 0.9);
             border: 2px solid #00ffff;
             padding: 16px 32px;
             border-radius: 4px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
         }
         #tutorial-title {
             color: #00ffff;
@@ -162,7 +162,7 @@
     </div>
 
     <div id="lobby-screen">
-        <h1>STEEL REQUIEM</h1>
+        <h1>KATANA ZERO</h1>
         <div class="btn-group">
             <button id="btn-tutorial">TUTORIAL</button>
             <button id="btn-stage">STAGE MODE</button>
@@ -186,6 +186,7 @@ const tutorialDesc = document.getElementById("tutorial-desc");
 canvas.width = 1280;
 canvas.height = 720;
 
+// 확장된 대형 맵 월드 사이즈 (2560x1440)
 const WORLD_WIDTH = 2560;
 const WORLD_HEIGHT = 1440;
 
@@ -207,11 +208,11 @@ const mouse = { x: 0, y: 0, worldX: 0, worldY: 0, leftPressed: false, rightPress
 
 let tutorialStep = 0;
 const tutorialSteps = [
-    { title: "STEP 1: MOVEMENT", desc: "A / D 키로 이동하고 W / Space 키로 점프하세요.", check: () => keys["KeyA"] || keys["KeyD"] || keys["KeyW"] || keys["Space"] },
-    { title: "STEP 2: EVADE DASH", desc: "Shift 키를 눌러 적의 공격을 회피하세요 (무적 판정).", check: () => keys["ShiftLeft"] },
-    { title: "STEP 3: DASH SLASH", desc: "마우스 좌클릭으로 커서 방향으로 대시 베기를 사용하세요.", check: () => mouse.leftPressed },
-    { title: "STEP 4: BULLET REFLECT", desc: "다가오는 탄환을 베어서 적에게 반사하세요!", check: () => killCount >= 1 },
-    { title: "STEP 5: CHRONOS TIME SLOW", desc: "마우스 우클릭을 누르고 있는 동안 시간이 감속됩니다.", check: () => mouse.rightPressed }
+    { title: "STEP 1: 이동 및 점프", desc: "A / D 키로 이동하고 W / Space 키로 점프하세요.", check: () => keys["KeyA"] || keys["KeyD"] || keys["KeyW"] || keys["Space"] },
+    { title: "STEP 2: 무적 회피 (Evade)", desc: "Shift 키를 눌러 회피 대시를 사용하세요 (회피 중 무적).", check: () => keys["ShiftLeft"] },
+    { title: "STEP 3: 카타나 참격 (Slash)", desc: "마우스 좌클릭으로 마우스 커서 방향으로 대시 베기를 하세요.", check: () => mouse.leftPressed },
+    { title: "STEP 4: 탄환 반사 (Parry)", desc: "다가오는 총알을 베어서 적에게 반사하세요!", check: () => killCount >= 1 },
+    { title: "STEP 5: 크로노스 시간 감속", desc: "마우스 우클릭을 누르고 있는 동안 시간이 느려집니다.", check: () => mouse.rightPressed }
 ];
 
 document.getElementById("btn-tutorial").addEventListener("click", () => startGame("TUTORIAL"));
@@ -246,6 +247,7 @@ canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 const gravity = 1600;
 
+// 확장된 대형 맵 배치
 const stageMaps = {
     1: [
         { x: 0, y: 1380, w: 2560, h: 60 },
