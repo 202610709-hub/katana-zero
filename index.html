@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katana Zero Canvas Edition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- 로비 화면 -->
+        <div id="lobby-screen" class="overlay-screen">
+            <h1 class="game-title">KATANA CANVAS</h1>
+            <p class="subtitle">CHRONOS ACTION SYSTEM</p>
+            <div class="menu-buttons">
+                <button id="btn-stage" class="menu-btn">STAGE MODE (맵 변경 모드)</button>
+                <button id="btn-infinite" class="menu-btn">INFINITE MODE (무한 서바이벌)</button>
+            </div>
+            <div class="lobby-controls">
+                <p>[A/D] 이동 | [W/Space] 점프 | [Shift] 구르기</p>
+                <p>[좌클릭] 대시 베기 & 넓은 패링 | [우클릭] 시간 감속</p>
+                <p>[R] 즉시 재시작 | [ESC] 로비로 돌아가기</p>
+            </div>
+        </div>
+
+        <!-- 게임 HUD -->
+        <div id="ui-layer" class="hidden">
+            <div id="chronos-container">
+                <span class="hud-label">CHRONOS</span>
+                <div id="chronos-bar-bg">
+                    <div id="chronos-bar-fill"></div>
+                </div>
+            </div>
+            <div id="game-info">
+                <span id="mode-display">STAGE 1</span>
+                <span id="score-display">KILL: 0</span>
+            </div>
+        </div>
+
+        <div class="vhs-overlay"></div>
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
