@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steel Requiem - Combat Tech Demo</title>
+    <title>Steel Requiem - Combat Tech Demo Extended</title>
     <style>
         * {
             box-sizing: border-box;
@@ -25,12 +25,12 @@
             position: relative;
             width: 1280px;
             height: 720px;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 35px rgba(0, 255, 255, 0.25);
             border: 2px solid #1a1a26;
         }
         canvas {
             display: block;
-            background-color: #0a0a10;
+            background-color: #06060c;
         }
         #ui-layer {
             position: absolute;
@@ -39,7 +39,7 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            padding: 20px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -50,25 +50,48 @@
             align-items: flex-start;
         }
         .hud-stats {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
-            text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
         }
         #chronos-bar-container {
-            width: 250px;
-            height: 14px;
+            width: 280px;
+            height: 16px;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid #00ffff;
-            margin-top: 8px;
+            margin-top: 10px;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
         }
         #chronos-bar-fill {
             width: 100%;
             height: 100%;
             background: linear-gradient(90deg, #0088ff, #00ffff);
-            box-shadow: 0 0 10px #00ffff;
+            box-shadow: 0 0 12px #00ffff;
             transition: width 0.05s linear;
+        }
+        #tutorial-box {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 10, 20, 0.85);
+            border: 2px solid #00ffff;
+            padding: 16px 32px;
+            border-radius: 4px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        #tutorial-title {
+            color: #00ffff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+        #tutorial-desc {
+            color: #ffffff;
+            font-size: 15px;
         }
         .hidden {
             display: none !important;
@@ -79,7 +102,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(10, 10, 16, 0.95);
+            background: rgba(6, 6, 12, 0.95);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -87,10 +110,10 @@
             z-index: 10;
         }
         h1 {
-            font-size: 56px;
-            letter-spacing: 4px;
+            font-size: 64px;
+            letter-spacing: 6px;
             color: #00ffff;
-            text-shadow: 0 0 20px #00ffff;
+            text-shadow: 0 0 25px #00ffff;
             margin-bottom: 40px;
         }
         .btn-group {
@@ -102,7 +125,7 @@
             background: transparent;
             color: #00ffff;
             border: 2px solid #00ffff;
-            padding: 12px 32px;
+            padding: 14px 36px;
             font-size: 18px;
             font-family: inherit;
             font-weight: bold;
@@ -112,7 +135,7 @@
         button:hover {
             background: #00ffff;
             color: #000;
-            box-shadow: 0 0 15px #00ffff;
+            box-shadow: 0 0 20px #00ffff;
         }
     </style>
 </head>
@@ -131,11 +154,17 @@
             </div>
             <div id="score-display" class="hud-stats">KILL: 0</div>
         </div>
+
+        <div id="tutorial-box" class="hidden">
+            <div id="tutorial-title">TUTORIAL STEP 1</div>
+            <div id="tutorial-desc">Use A / D to Move, W / Space to Jump</div>
+        </div>
     </div>
 
     <div id="lobby-screen">
         <h1>STEEL REQUIEM</h1>
         <div class="btn-group">
+            <button id="btn-tutorial">TUTORIAL</button>
             <button id="btn-stage">STAGE MODE</button>
             <button id="btn-infinite">INFINITE MODE</button>
         </div>
@@ -150,9 +179,15 @@ const lobbyScreen = document.getElementById("lobby-screen");
 const uiLayer = document.getElementById("ui-layer");
 const modeDisplay = document.getElementById("mode-display");
 const scoreDisplay = document.getElementById("score-display");
+const tutorialBox = document.getElementById("tutorial-box");
+const tutorialTitle = document.getElementById("tutorial-title");
+const tutorialDesc = document.getElementById("tutorial-desc");
 
 canvas.width = 1280;
 canvas.height = 720;
+
+const WORLD_WIDTH = 2560;
+const WORLD_HEIGHT = 1440;
 
 let gameState = "LOBBY"; 
 let gameMode = "STAGE";  
@@ -166,9 +201,20 @@ let hitStopTimer = 0;
 let cameraShakeTime = 0;
 let cameraShakeIntensity = 0;
 
+const camera = { x: 0, y: 0, width: 1280, height: 720 };
 const keys = {};
-const mouse = { x: 0, y: 0, leftPressed: false, rightPressed: false };
+const mouse = { x: 0, y: 0, worldX: 0, worldY: 0, leftPressed: false, rightPressed: false };
 
+let tutorialStep = 0;
+const tutorialSteps = [
+    { title: "STEP 1: MOVEMENT", desc: "A / D 키로 이동하고 W / Space 키로 점프하세요.", check: () => keys["KeyA"] || keys["KeyD"] || keys["KeyW"] || keys["Space"] },
+    { title: "STEP 2: EVADE DASH", desc: "Shift 키를 눌러 적의 공격을 회피하세요 (무적 판정).", check: () => keys["ShiftLeft"] },
+    { title: "STEP 3: DASH SLASH", desc: "마우스 좌클릭으로 커서 방향으로 대시 베기를 사용하세요.", check: () => mouse.leftPressed },
+    { title: "STEP 4: BULLET REFLECT", desc: "다가오는 탄환을 베어서 적에게 반사하세요!", check: () => killCount >= 1 },
+    { title: "STEP 5: CHRONOS TIME SLOW", desc: "마우스 우클릭을 누르고 있는 동안 시간이 감속됩니다.", check: () => mouse.rightPressed }
+];
+
+document.getElementById("btn-tutorial").addEventListener("click", () => startGame("TUTORIAL"));
 document.getElementById("btn-stage").addEventListener("click", () => startGame("STAGE"));
 document.getElementById("btn-infinite").addEventListener("click", () => startGame("INFINITE"));
 
@@ -185,6 +231,8 @@ canvas.addEventListener("mousemove", (e) => {
     const scaleY = canvas.height / rect.height;
     mouse.x = (e.clientX - rect.left) * scaleX;
     mouse.y = (e.clientY - rect.top) * scaleY;
+    mouse.worldX = mouse.x + camera.x;
+    mouse.worldY = mouse.y + camera.y;
 });
 canvas.addEventListener("mousedown", (e) => {
     if (e.button === 0) mouse.leftPressed = true;
@@ -196,33 +244,40 @@ canvas.addEventListener("mouseup", (e) => {
 });
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-const gravity = 1500;
+const gravity = 1600;
 
 const stageMaps = {
     1: [
-        { x: 0, y: 680, w: 1280, h: 50 },
-        { x: 0, y: 0, w: 20, h: 720 },
-        { x: 1260, y: 0, w: 20, h: 720 },
-        { x: 180, y: 520, w: 320, h: 18 },
-        { x: 740, y: 380, w: 380, h: 18 },
-        { x: 300, y: 220, w: 240, h: 18 }
+        { x: 0, y: 1380, w: 2560, h: 60 },
+        { x: 0, y: 0, w: 40, h: 1440 },
+        { x: 2520, y: 0, w: 40, h: 1440 },
+        { x: 200, y: 1100, w: 600, h: 24 },
+        { x: 1000, y: 950, w: 600, h: 24 },
+        { x: 1800, y: 1100, w: 600, h: 24 },
+        { x: 400, y: 700, w: 500, h: 24 },
+        { x: 1600, y: 700, w: 500, h: 24 },
+        { x: 1000, y: 450, w: 500, h: 24 }
     ],
     2: [
-        { x: 0, y: 680, w: 1280, h: 50 },
-        { x: 0, y: 0, w: 20, h: 720 },
-        { x: 1260, y: 0, w: 20, h: 720 },
-        { x: 250, y: 540, w: 200, h: 18 },
-        { x: 800, y: 540, w: 200, h: 18 },
-        { x: 525, y: 360, w: 200, h: 18 },
-        { x: 250, y: 180, w: 750, h: 18 }
+        { x: 0, y: 1380, w: 2560, h: 60 },
+        { x: 0, y: 0, w: 40, h: 1440 },
+        { x: 2520, y: 0, w: 40, h: 1440 },
+        { x: 300, y: 1150, w: 400, h: 24 },
+        { x: 850, y: 950, w: 860, h: 24 },
+        { x: 1860, y: 1150, w: 400, h: 24 },
+        { x: 200, y: 750, w: 500, h: 24 },
+        { x: 1860, y: 750, w: 500, h: 24 },
+        { x: 800, y: 500, w: 960, h: 24 }
     ],
     3: [
-        { x: 0, y: 680, w: 1280, h: 50 },
-        { x: 0, y: 0, w: 20, h: 720 },
-        { x: 1260, y: 0, w: 20, h: 720 },
-        { x: 100, y: 480, w: 400, h: 18 },
-        { x: 780, y: 480, w: 400, h: 18 },
-        { x: 440, y: 280, w: 400, h: 18 }
+        { x: 0, y: 1380, w: 2560, h: 60 },
+        { x: 0, y: 0, w: 40, h: 1440 },
+        { x: 2520, y: 0, w: 40, h: 1440 },
+        { x: 200, y: 1100, w: 700, h: 24 },
+        { x: 1660, y: 1100, w: 700, h: 24 },
+        { x: 600, y: 800, w: 1360, h: 24 },
+        { x: 200, y: 500, w: 600, h: 24 },
+        { x: 1760, y: 500, w: 600, h: 24 }
     ]
 };
 
@@ -305,24 +360,24 @@ function drawPlayerSprite(ctx, x, y, facing, isInvincible, isEvading = false) {
 }
 
 function spawnDust(x, y) {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
         dustParticles.push({
             x: x + (Math.random() - 0.5) * 16,
             y: y,
-            vx: (Math.random() - 0.5) * 80,
-            vy: -Math.random() * 50 - 10,
-            life: Math.random() * 0.2 + 0.15,
-            size: Math.random() * 5 + 3,
-            color: `rgba(180, 180, 190, ${Math.random() * 0.5 + 0.3})`
+            vx: (Math.random() - 0.5) * 120,
+            vy: -Math.random() * 60 - 20,
+            life: Math.random() * 0.25 + 0.15,
+            size: Math.random() * 6 + 3,
+            color: `rgba(180, 180, 190, ${Math.random() * 0.6 + 0.3})`
         });
     }
 }
 
 const player = {
-    x: 100, y: 550, w: 20, h: 40,
+    x: 200, y: 1200, w: 20, h: 40,
     vx: 0, vy: 0,
-    speed: 380, 
-    jumpForce: -620, 
+    speed: 420, 
+    jumpForce: -680, 
     isGrounded: false,
     isWalled: false,
     wallDir: 0,
@@ -331,8 +386,8 @@ const player = {
     isEvading: false,
     hasAirDashed: false,
     evadeTimer: 0,
-    evadeDuration: 0.2, 
-    evadeSpeed: 950,    
+    evadeDuration: 0.22, 
+    evadeSpeed: 1050,    
     evadeCooldown: 0,   
     isInvincible: false,
     
@@ -353,8 +408,8 @@ const player = {
                 afterimages.push({
                     x: this.x, y: this.y, w: this.w, h: this.h,
                     facing: this.facingDir,
-                    color: chronos.active ? "rgba(0, 255, 255, 0.6)" : "rgba(255, 0, 128, 0.6)",
-                    life: 0.2,
+                    color: chronos.active ? "rgba(0, 255, 255, 0.7)" : "rgba(255, 0, 128, 0.7)",
+                    life: 0.25,
                     isEvading: this.isEvading
                 });
                 this.afterimageTimer = 0.02;
@@ -375,7 +430,7 @@ const player = {
             if (this.evadeTimer <= 0) {
                 this.isEvading = false;
                 this.isInvincible = false; 
-                this.evadeCooldown = 0.25; 
+                this.evadeCooldown = 0.22; 
             }
         } else {
             let moveDir = 0;
@@ -406,8 +461,8 @@ const player = {
                 this.isGrounded = false;
                 keys["KeyW"] = false; keys["Space"] = false;
             } else if (this.isWalled) {
-                this.vy = this.jumpForce * 0.9;
-                this.vx = -this.wallDir * this.speed * 1.3;
+                this.vy = this.jumpForce * 0.95;
+                this.vx = -this.wallDir * this.speed * 1.4;
                 this.facingDir = -this.wallDir;
                 this.isWalled = false;
                 keys["KeyW"] = false; keys["Space"] = false;
@@ -416,7 +471,7 @@ const player = {
 
         if (!this.isDashing && !this.isEvading) {
             this.vy += gravity * dt;
-            if (this.isWalled && this.vy > 0) this.vy = Math.min(this.vy, 90);
+            if (this.isWalled && this.vy > 0) this.vy = Math.min(this.vy, 100);
         } 
 
         this.x += this.vx * dt;
@@ -427,7 +482,7 @@ const player = {
         this.attackCooldown -= dt;
         if (mouse.leftPressed && this.attackCooldown <= 0 && !this.isEvading) {
             this.attack();
-            this.attackCooldown = 0.22;
+            this.attackCooldown = 0.2;
             mouse.leftPressed = false;
         }
     },
@@ -435,11 +490,11 @@ const player = {
     attack() {
         const startX = this.x + this.w / 2;
         const startY = this.y + this.h / 2;
-        const angle = Math.atan2(mouse.y - startY, mouse.x - startX);
+        const angle = Math.atan2(mouse.worldY - startY, mouse.worldX - startX);
 
-        const dashDistance = 180; 
+        const dashDistance = 220; 
         this.isDashing = true;
-        this.dashTimer = 0.07; 
+        this.dashTimer = 0.08; 
         this.vx = Math.cos(angle) * (dashDistance / this.dashTimer);
         this.vy = Math.sin(angle) * (dashDistance / this.dashTimer);
         this.facingDir = Math.cos(angle) >= 0 ? 1 : -1;
@@ -449,40 +504,40 @@ const player = {
 
         dashLines.push({
             x1: startX, y1: startY, x2: endX, y2: endY,
-            life: 0.18, maxLife: 0.18
+            life: 0.2, maxLife: 0.2
         });
 
         slashEffects.push({
             x: endX, y: endY,
             angle: angle,
-            radius: 95, 
-            life: 0.14, maxLife: 0.14
+            radius: 120, 
+            life: 0.16, maxLife: 0.16
         });
 
-        for (let i = 0; i < 18; i++) {
-            const pAngle = angle + (Math.random() - 0.5) * 1.5;
-            const pSpeed = Math.random() * 500 + 150;
+        for (let i = 0; i < 24; i++) {
+            const pAngle = angle + (Math.random() - 0.5) * 1.6;
+            const pSpeed = Math.random() * 600 + 200;
             sparkParticles.push({
                 x: endX, y: endY,
                 vx: Math.cos(pAngle) * pSpeed,
                 vy: Math.sin(pAngle) * pSpeed,
-                life: Math.random() * 0.12 + 0.05,
-                color: Math.random() > 0.5 ? "#00ffff" : "#ffffff"
+                life: Math.random() * 0.15 + 0.05,
+                color: Math.random() > 0.4 ? "#00ffff" : "#ffffff"
             });
         }
 
         const attackBox = {
-            x: endX - 110,
-            y: endY - 110,
-            w: 220, h: 220
+            x: endX - 130,
+            y: endY - 130,
+            w: 260, h: 260
         };
 
         let hitSuccess = false;
 
         bullets.forEach(b => {
-            if (isColliding(attackBox, { x: b.x - 12, y: b.y - 12, w: 24, h: 24 })) {
-                b.vx = Math.cos(angle) * 1200; 
-                b.vy = Math.sin(angle) * 1200;
+            if (isColliding(attackBox, { x: b.x - 15, y: b.y - 15, w: 30, h: 30 })) {
+                b.vx = Math.cos(angle) * 1500; 
+                b.vy = Math.sin(angle) * 1500;
                 b.isReflected = true;
                 hitSuccess = true;
             }
@@ -503,9 +558,9 @@ const player = {
             this.hasAirDashed = false;
         }
 
-        cameraShakeTime = hitSuccess ? 0.35 : 0.15;
-        cameraShakeIntensity = hitSuccess ? 16 : 7;
-        hitStopTimer = hitSuccess ? 0.12 : 0.04;
+        cameraShakeTime = hitSuccess ? 0.4 : 0.18;
+        cameraShakeIntensity = hitSuccess ? 20 : 8;
+        hitStopTimer = hitSuccess ? 0.14 : 0.05;
     },
 
     checkCollisionX() {
@@ -539,16 +594,16 @@ const player = {
 };
 
 function createEnemy(type, x, y) {
-    let speed = 110;
-    if (type === 1) speed = 200; 
-    if (type === 4) speed = 80;
+    let speed = 130;
+    if (type === 1) speed = 240; 
+    if (type === 4) speed = 90;
 
     return {
         type: type,
         x: x, y: y, w: 24, h: 40,
         vx: 0, vy: 0,
         alive: true,
-        shootTimer: type === 4 ? 1.0 : 0.8,
+        shootTimer: type === 4 ? 0.8 : 0.6,
         facingDir: -1,
         moveSpeed: speed,
 
@@ -558,13 +613,13 @@ function createEnemy(type, x, y) {
             const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
             this.facingDir = player.x < this.x ? -1 : 1;
 
-            if (distToPlayer < 750) {
+            if (distToPlayer < 900) {
                 if (this.type === 1) {
                     this.vx = this.facingDir * this.moveSpeed;
                 } else {
-                    if (distToPlayer > 350) {
+                    if (distToPlayer > 400) {
                         this.vx = this.facingDir * this.moveSpeed;
-                    } else if (distToPlayer < 200) {
+                    } else if (distToPlayer < 220) {
                         this.vx = -this.facingDir * this.moveSpeed;
                     } else {
                         this.vx = 0;
@@ -586,18 +641,18 @@ function createEnemy(type, x, y) {
 
             if (this.type === 1 && isColliding(this, player) && !player.isDead && !player.isInvincible) {
                 player.isDead = true;
-                cameraShakeTime = 0.4;
-                cameraShakeIntensity = 12;
+                cameraShakeTime = 0.45;
+                cameraShakeIntensity = 15;
                 spawnBlood(player.x + player.w / 2, player.y + player.h / 2, Math.PI);
             }
 
-            if ((this.type === 2 || this.type === 3 || this.type === 4) && distToPlayer < 750) {
+            if ((this.type === 2 || this.type === 3 || this.type === 4) && distToPlayer < 900) {
                 this.shootTimer -= dt;
                 if (this.shootTimer <= 0) {
                     if (this.type === 4) {
                         for (let i = -1; i <= 1; i++) {
-                            const angle = Math.atan2((player.y + 15) - (this.y + 15), (player.x + 10) - (this.x + 10)) + (i * 0.2);
-                            const bSpeed = 520;
+                            const angle = Math.atan2((player.y + 15) - (this.y + 15), (player.x + 10) - (this.x + 10)) + (i * 0.22);
+                            const bSpeed = 580;
                             bullets.push({
                                 x: this.x + 12, y: this.y + 15,
                                 vx: Math.cos(angle) * bSpeed,
@@ -605,17 +660,17 @@ function createEnemy(type, x, y) {
                                 isReflected: false
                             });
                         }
-                        this.shootTimer = 2.2;
+                        this.shootTimer = 2.0;
                     } else {
                         const angle = Math.atan2((player.y + 15) - (this.y + 15), (player.x + 10) - (this.x + 10));
-                        const speed = this.type === 3 ? 600 : 450;
+                        const speed = this.type === 3 ? 680 : 500;
                         bullets.push({
                             x: this.x + 12, y: this.y + 15,
                             vx: Math.cos(angle) * speed,
                             vy: Math.sin(angle) * speed,
                             isReflected: false
                         });
-                        this.shootTimer = this.type === 3 ? 2.0 : 1.4;
+                        this.shootTimer = this.type === 3 ? 1.8 : 1.2;
                     }
                 }
             }
@@ -635,26 +690,62 @@ function createEnemy(type, x, y) {
     };
 }
 
+function updateCamera() {
+    let targetX = player.x + player.w / 2 - camera.width / 2;
+    let targetY = player.y + player.h / 2 - camera.height / 2;
+
+    camera.x += (targetX - camera.x) * 0.1;
+    camera.y += (targetY - camera.y) * 0.1;
+
+    camera.x = Math.max(0, Math.min(WORLD_WIDTH - camera.width, camera.x));
+    camera.y = Math.max(0, Math.min(WORLD_HEIGHT - camera.height, camera.y));
+
+    mouse.worldX = mouse.x + camera.x;
+    mouse.worldY = mouse.y + camera.y;
+}
+
 function startGame(mode) {
     gameMode = mode;
     gameState = "PLAYING";
     currentStage = 1;
     killCount = 0;
+    tutorialStep = 0;
     lobbyScreen.classList.add("hidden");
     uiLayer.classList.remove("hidden");
+
+    if (gameMode === "TUTORIAL") {
+        tutorialBox.classList.remove("hidden");
+        updateTutorialUI();
+    } else {
+        tutorialBox.classList.add("hidden");
+    }
+
     resetGame();
+}
+
+function updateTutorialUI() {
+    if (tutorialStep < tutorialSteps.length) {
+        tutorialTitle.innerText = tutorialSteps[tutorialStep].title;
+        tutorialDesc.innerText = tutorialSteps[tutorialStep].desc;
+    } else {
+        tutorialTitle.innerText = "TUTORIAL COMPLETE!";
+        tutorialDesc.innerText = "모든 튜토리얼을 완료했습니다! ESC를 눌러 로비로 이동하세요.";
+    }
 }
 
 function returnToLobby() {
     gameState = "LOBBY";
     lobbyScreen.classList.remove("hidden");
     uiLayer.classList.add("hidden");
+    tutorialBox.classList.add("hidden");
 }
 
 function updateHUD() {
     scoreDisplay.innerText = `KILL: ${killCount}`;
     if (gameMode === "STAGE") {
         modeDisplay.innerText = `STAGE ${currentStage}`;
+    } else if (gameMode === "TUTORIAL") {
+        modeDisplay.innerText = `TUTORIAL MODE`;
     } else {
         modeDisplay.innerText = `INFINITE SURVIVAL`;
     }
@@ -662,15 +753,23 @@ function updateHUD() {
 
 function initStageEnemies() {
     enemies = [];
+    if (gameMode === "TUTORIAL") {
+        platforms = stageMaps[1];
+        if (tutorialStep === 3) {
+            enemies.push(createEnemy(2, 800, 1200));
+        }
+        return;
+    }
+
     let mapKey = ((currentStage - 1) % 3) + 1;
     platforms = stageMaps[mapKey];
 
     if (gameMode === "STAGE") {
-        let enemyCount = 4 + currentStage;
+        let enemyCount = 6 + currentStage * 2;
         let positions = [
-            { x: 450, y: 150 }, { x: 750, y: 300 }, { x: 1080, y: 540 },
-            { x: 350, y: 540 }, { x: 950, y: 150 }, { x: 1100, y: 150 },
-            { x: 200, y: 200 }, { x: 800, y: 500 }
+            { x: 500, y: 1000 }, { x: 1200, y: 850 }, { x: 1900, y: 1000 },
+            { x: 500, y: 600 }, { x: 1800, y: 600 }, { x: 1200, y: 350 },
+            { x: 300, y: 1200 }, { x: 2200, y: 1200 }
         ];
         for (let i = 0; i < Math.min(enemyCount, positions.length); i++) {
             let type = (i % 4) + 1; 
@@ -681,13 +780,16 @@ function initStageEnemies() {
 
 function spawnRandomEnemy() {
     let type = Math.floor(Math.random() * 4) + 1;
-    let spawnPoints = [{ x: 1200, y: 540 }, { x: 1200, y: 200 }, { x: 50, y: 200 }, { x: 50, y: 540 }];
+    let spawnPoints = [
+        { x: 2400, y: 1200 }, { x: 2400, y: 600 }, 
+        { x: 150, y: 600 }, { x: 150, y: 1200 }, { x: 1200, y: 350 }
+    ];
     let pt = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
     enemies.push(createEnemy(type, pt.x, pt.y));
 }
 
 function resetGame() {
-    player.x = 100; player.y = 550;
+    player.x = 200; player.y = 1200;
     player.vx = 0; player.vy = 0;
     player.isDead = false;
     player.isEvading = false;
@@ -711,15 +813,15 @@ function resetGame() {
 }
 
 function spawnBlood(x, y, dirAngle) {
-    for (let i = 0; i < 45; i++) {
-        const spreadAngle = dirAngle + (Math.random() - 0.5) * 1.4;
-        const speed = Math.random() * 450 + 100;
+    for (let i = 0; i < 60; i++) {
+        const spreadAngle = dirAngle + (Math.random() - 0.5) * 1.5;
+        const speed = Math.random() * 550 + 120;
         bloodParticles.push({
             x: x, y: y,
             vx: Math.cos(spreadAngle) * speed,
             vy: Math.sin(spreadAngle) * speed,
-            radius: Math.random() * 3.5 + 1,
-            life: Math.random() * 0.5 + 0.3
+            radius: Math.random() * 4 + 1.5,
+            life: Math.random() * 0.6 + 0.3
         });
     }
 }
@@ -735,9 +837,21 @@ function gameLoop(timestamp) {
     if (isNaN(dt) || dt > 0.1) dt = 0.1;
 
     if (gameState === "PLAYING") {
+        updateCamera();
+
+        if (gameMode === "TUTORIAL" && tutorialStep < tutorialSteps.length) {
+            if (tutorialSteps[tutorialStep].check()) {
+                tutorialStep++;
+                updateTutorialUI();
+                if (tutorialStep === 3 && enemies.length === 0) {
+                    enemies.push(createEnemy(2, player.x + 400, player.y));
+                }
+            }
+        }
+
         if (gameMode === "INFINITE" && !player.isDead) {
             spawnTimer += dt;
-            if (spawnTimer >= 2.0) {
+            if (spawnTimer >= 1.8) {
                 spawnRandomEnemy();
                 spawnTimer = 0;
             }
@@ -751,7 +865,7 @@ function gameLoop(timestamp) {
 
         if (mouse.rightPressed && chronos.energy > 0) {
             chronos.active = true;
-            timeScale = 0.18;
+            timeScale = 0.15;
             chronos.energy -= dt * chronos.drainRate;
         } else {
             chronos.active = false;
@@ -785,18 +899,18 @@ function gameLoop(timestamp) {
                     }
                 });
 
-                if (!b.isReflected && isColliding(player, { x: b.x - 4, y: b.y - 4, w: 8, h: 8 })) {
+                if (!b.isReflected && isColliding(player, { x: b.x - 5, y: b.y - 5, w: 10, h: 10 })) {
                     if (!player.isInvincible) {
                         player.isDead = true;
-                        cameraShakeTime = 0.4;
-                        cameraShakeIntensity = 12;
+                        cameraShakeTime = 0.45;
+                        cameraShakeIntensity = 15;
                         spawnBlood(player.x + player.w / 2, player.y + player.h / 2, Math.PI);
                     }
                 }
 
                 if (b.isReflected) {
                     enemies.forEach(e => {
-                        if (e.alive && isColliding(e, { x: b.x - 4, y: b.y - 4, w: 8, h: 8 })) {
+                        if (e.alive && isColliding(e, { x: b.x - 5, y: b.y - 5, w: 10, h: 10 })) {
                             e.alive = false;
                             killCount++;
                             updateHUD();
@@ -835,15 +949,19 @@ function gameLoop(timestamp) {
 
     ctx.save();
 
+    let shakeX = 0, shakeY = 0;
     if (cameraShakeTime > 0) {
         cameraShakeTime -= dt;
-        ctx.translate((Math.random() - 0.5) * cameraShakeIntensity, (Math.random() - 0.5) * cameraShakeIntensity);
+        shakeX = (Math.random() - 0.5) * cameraShakeIntensity;
+        shakeY = (Math.random() - 0.5) * cameraShakeIntensity;
     }
 
-    ctx.fillStyle = chronos.active ? "#05131d" : "#0a0a10";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
 
-    ctx.fillStyle = "#1e1e28";
+    ctx.fillStyle = chronos.active ? "#041018" : "#06060c";
+    ctx.fillRect(camera.x, camera.y, camera.width, camera.height);
+
+    ctx.fillStyle = "#1e1e2c";
     platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
 
     for (let i = afterimages.length - 1; i >= 0; i--) {
@@ -867,7 +985,7 @@ function gameLoop(timestamp) {
 
         const alpha = dl.life / dl.maxLife;
         ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.moveTo(dl.x1, dl.y1);
         ctx.lineTo(dl.x2, dl.y2);
@@ -884,17 +1002,17 @@ function gameLoop(timestamp) {
         ctx.translate(s.x, s.y);
 
         ctx.strokeStyle = "#00ffff";
-        ctx.lineWidth = 10; 
+        ctx.lineWidth = 14; 
         ctx.shadowColor = "#00ffff";
-        ctx.shadowBlur = 24;
+        ctx.shadowBlur = 28;
         ctx.beginPath();
-        ctx.arc(0, 0, s.radius, s.angle - 1.3 + (progress * 0.4), s.angle + 1.3);
+        ctx.arc(0, 0, s.radius, s.angle - 1.4 + (progress * 0.4), s.angle + 1.4);
         ctx.stroke();
 
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 5;
         ctx.beginPath();
-        ctx.arc(0, 0, s.radius, s.angle - 1.1 + (progress * 0.4), s.angle + 1.1);
+        ctx.arc(0, 0, s.radius, s.angle - 1.2 + (progress * 0.4), s.angle + 1.2);
         ctx.stroke();
 
         ctx.restore();
@@ -902,7 +1020,7 @@ function gameLoop(timestamp) {
 
     sparkParticles.forEach(sp => {
         ctx.fillStyle = sp.color;
-        ctx.fillRect(sp.x, sp.y, 2, 2);
+        ctx.fillRect(sp.x, sp.y, 3, 3);
     });
 
     ctx.fillStyle = "#ff0044";
@@ -911,9 +1029,9 @@ function gameLoop(timestamp) {
     bullets.forEach(b => {
         ctx.fillStyle = b.isReflected ? "#00ffff" : "#ffcc00";
         ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+        ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
     });
@@ -925,14 +1043,14 @@ function gameLoop(timestamp) {
 
     if (gameState === "PLAYING" && player.isDead) {
         ctx.fillStyle = "#ff0055";
-        ctx.font = "900 36px Consolas";
+        ctx.font = "900 42px Consolas";
         ctx.textAlign = "center";
         ctx.shadowColor = "#ff0055";
-        ctx.shadowBlur = 12;
-        ctx.fillText("STAGE FAILED", canvas.width / 2, canvas.height / 2 - 10);
+        ctx.shadowBlur = 16;
+        ctx.fillText("STAGE FAILED", camera.x + camera.width / 2, camera.y + camera.height / 2 - 10);
         ctx.fillStyle = "#ffffff";
-        ctx.font = "20px Consolas";
-        ctx.fillText("PRESS 'R' TO REVERSE TIME", canvas.width / 2, canvas.height / 2 + 35);
+        ctx.font = "22px Consolas";
+        ctx.fillText("PRESS 'R' TO REVERSE TIME", camera.x + camera.width / 2, camera.y + camera.height / 2 + 40);
         ctx.shadowBlur = 0;
     }
 
